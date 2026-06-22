@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ResearchMatch for Topic · leading researchers by keyword</title>
+<link rel="preconnect" href="https://api.openalex.org" />
+<style>
+  :root{
+    --bg:#0a1628; --panel:#111f38; --panel2:#0f2044; --line:#1e3357;
+    --accent:#22d3ee; --teal:#14b8a6; --teal-d:#0d9488; --muted:#8099b8; --text:#f0f4f8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Space Grotesk',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+  a{color:inherit}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .hdr{background:linear-gradient(135deg,#0f2044,#1a3a6b);border-bottom:1px solid var(--line);
+    padding:16px 24px;display:flex;align-items:center;gap:14px}
+  .logo{width:38px;height:38px;background:linear-gradient(135deg,var(--teal-d),var(--accent));
+    border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--bg);flex-shrink:0}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px}
+  .kicker{font-size:11px;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+  .srow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  label.fld{flex:1;min-width:200px}
+  .fld span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none}
+  input:focus,select:focus{border-color:var(--teal)}
+  .btn{background:linear-gradient(135deg,var(--teal-d),var(--accent));border:none;border-radius:8px;
+    padding:11px 22px;color:var(--bg);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;
+    padding:8px 10px;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:block}
+  .chip{background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--accent);
+    border-radius:4px;padding:3px 8px;font-size:11px}
+  .chip-teal{background:rgba(13,148,136,.15);border:1px solid rgba(13,148,136,.35);color:var(--teal);
+    border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer}
+  .ex{cursor:pointer}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .rcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px}
+  .stat{font-size:16px;font-weight:700;color:var(--text)}
+  .stat small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:400}
+  .sec-t{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+  .reason{font-size:12px;color:var(--muted);margin-bottom:3px;padding-left:10px;border-left:2px solid var(--teal-d)}
+  .divider{border-top:1px solid var(--line);padding-top:10px}
+  .spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.4);color:#ffb4b4;border-radius:8px;padding:12px 16px;font-size:13px}
+  .muted{color:var(--muted)} .small{font-size:12px}
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <div class="logo">RM</div>
+    <div>
+      <div style="font-size:17px;font-weight:700;letter-spacing:-.5px">ResearchMatch <span style="color:#22d3ee">for Topic</span></div>
+      <div class="small mono muted">leading researchers by keyword · powered by OpenAlex</div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" style="padding:24px 28px;margin-bottom:28px">
+      <div class="kicker">Discover experts</div>
+      <div style="font-size:20px;font-weight:600;margin-bottom:18px;letter-spacing:-.5px">Find the leading researchers in any field</div>
+      <form id="searchForm" class="srow">
+        <label class="fld" style="flex:2">
+          <span>Keywords or topic</span>
+          <input id="kwInput" type="text" value="" placeholder="e.g. port decarbonisation, ESG reporting, computer vision" autocomplete="off" />
+        </label>
+        <button class="btn" id="searchBtn" type="submit">Find researchers</button>
+      </form>
+      <div class="small muted" style="margin-top:10px">
+        Searches paper titles and abstracts, detects the dominant research topics, and ranks authors with a balanced score of subject relevance and scholarly impact (h-index).
+      </div>
+      <div class="sec-t" style="margin-top:16px;margin-bottom:8px">Suggested searches</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="examples"></div>
+    </div>
+
+    <div id="status"></div>
+    <div id="topics"></div>
+
+    <div id="filters" style="display:none;margin-bottom:16px">
+      <div class="srow">
+        <label class="fld"><span>Region</span><select id="regionSel"><option value="">All regions</option></select></label>
+        <label class="fld"><span>Minimum h-index</span>
+          <select id="hSel"><option value="0">Any</option><option value="10">10+</option><option value="20">20+</option><option value="40">40+</option><option value="60">60+</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div id="resHdr" style="display:none;align-items:center;gap:10px;margin-bottom:16px;font-size:15px;font-weight:600">
+      Leading researchers
+      <span id="resCount" class="mono small muted" style="background:#1a3a6b;border:1px solid var(--line);border-radius:20px;padding:3px 10px"></span>
+    </div>
+
+    <div id="results" class="grid"></div>
+    <div id="empty"></div>
+
+    <footer style="margin-top:40px;padding-top:20px;border-top:1px solid var(--line);text-align:center" class="small muted">
+      Designed and developed by Darliane Ribeiro Cunha, PhD &middot; Data from
+      <a href="https://openalex.org" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">OpenAlex</a>
+    </footer>
+  </div>
+
+<script>
+const MAILTO="mailto=darlianerc@gmail.com";
+const OA="https://api.openalex.org";
+const EXAMPLES=["port decarbonisation","SDG maritime","port sustainability indicators","port environmental performance","maritime emissions monitoring","alternative marine fuels","shore power emissions","green port energy transition","ESG reporting sustainability","text mining sustainability reports","computer vision environmental monitoring","port risk assessment"];
+const state={ candidates:[], topics:[] };
+
+const $=s=>document.querySelector(s);
+const el=(t,a={},...kids)=>{const e=document.createElement(t);for(const k in a){if(k==="style")e.style.cssText=a[k];else if(k.startsWith("on"))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}for(const c of kids){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(c));}return e;};
+const cc=code=>{const m={NL:"Netherlands",DE:"Germany",GB:"United Kingdom",SE:"Sweden",BE:"Belgium",SG:"Singapore",BR:"Brazil",US:"United States",CA:"Canada",CN:"China",HK:"Hong Kong",NO:"Norway",DK:"Denmark",IT:"Italy",ES:"Spain",FR:"France",PT:"Portugal",AU:"Australia",JP:"Japan",KR:"South Korea",FI:"Finland",GR:"Greece",CY:"Cyprus",NZ:"New Zealand",TR:"Turkey",IN:"India",PL:"Poland",CL:"Chile",CH:"Switzerland",AT:"Austria",IE:"Ireland",MY:"Malaysia",ZA:"South Africa"};return m[code]||code||"—";};
+const initials=n=>n.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+const num=n=>(n||0).toLocaleString("en-GB");
+function bestAffil(a){const af=a.affiliations||[];if(af.length){const s=[...af].sort((x,y)=>{const lx=(x.years||[]).length,ly=(y.years||[]).length;if(ly!==lx)return ly-lx;return Math.max(...(y.years||[0]))-Math.max(...(x.years||[0]));});return s[0].institution;}return (a.last_known_institutions||[])[0]||{};}
+function setStatus(html,isErr){$("#status").innerHTML=html?`<div class="${isErr?'err':'card'}" style="padding:16px 20px;margin-bottom:20px">${html}</div>`:"";}
+
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
+
+// ---------- ORCID public email (only when the researcher has made it public) ----------
+const emailCache={};
+async function orcidEmail(orcid){
+  const id=(orcid||"").replace(/^https?:\/\/orcid\.org\//,"");
+  if(!id) return null;
+  if(id in emailCache) return emailCache[id];
+  try{
+    const em=await fetch(`https://pub.orcid.org/v3.0/${id}/email`,{headers:{Accept:"application/json"}}).then(r=>r.ok?r.json():null).catch(()=>null);
+    let email=null;
+    if(em && Array.isArray(em.email) && em.email.length){
+      const pe=em.email.find(e=>e.primary&&e.email)||em.email.find(e=>e.email);
+      email=pe?pe.email:null;
+    }
+    emailCache[id]=email; return email;
+  }catch(e){ emailCache[id]=null; return null; }
+}
+async function enrichEmails(){
+  const pool=state.candidates.filter(a=>a.orcid && !a._emChecked);
+  if(!pool.length) return;
+  let i=0;
+  async function worker(){ while(i<pool.length){ const a=pool[i++]; a._emChecked=true; const e=await orcidEmail(a.orcid); if(e) a._email=e; } }
+  await Promise.all(Array.from({length:6},worker));
+  render();
+}
+
+async function run(kw){
+  kw=(kw||"").trim();
+  if(kw.length<3){setStatus("Please enter at least one keyword (3+ characters).",true);return;}
+  $("#searchBtn").disabled=true;
+  $("#filters").style.display="none";$("#resHdr").style.display="none";
+  $("#results").innerHTML="";$("#empty").innerHTML="";$("#topics").innerHTML="";
+  setStatus(`<span class="spinner"></span> &nbsp;Searching publications for "${kw}"…`);
+  try{
+    // 1. works search by RELEVANCE: merge an exact-phrase pass (precision) with an
+    //    unquoted pass (breadth), so smaller and regional authors are also captured
+    const wsel="id,cited_by_count,publication_year,authorships,primary_topic";
+    const seen={};
+    for(const term of ['"'+kw+'"', kw]){
+      const r=await getJSON(`${OA}/works?search=${encodeURIComponent(term)}&per_page=200&select=${wsel}&${MAILTO}`);
+      (r.results||[]).forEach(w=>{seen[w.id]=w;});
+    }
+    const workResults=Object.values(seen);
+    if(!workResults.length){
+      setStatus(`No publications found for "${kw}". Try different or broader keywords.`,true);$("#searchBtn").disabled=false;return;
+    }
+    const agg={}, topicCount={};
+    const yearNow=new Date().getFullYear();
+    workResults.forEach(w=>{
+      const pt=w.primary_topic;
+      if(pt){const id=pt.id.split('/').pop();(topicCount[id]=topicCount[id]||{n:0,name:pt.display_name}).n++;}
+      (w.authorships||[]).forEach(au=>{
+        const id=au.author&&au.author.id;if(!id)return;
+        const d=agg[id]||(agg[id]={id,name:au.author.display_name,areaPapers:0,relCit:0,recent:0});
+        d.areaPapers++; d.relCit+=w.cited_by_count||0;
+        if((w.publication_year||0)>=yearNow-4) d.recent++;
+      });
+    });
+    const topTopics=Object.entries(topicCount).map(([id,v])=>({id,name:v.name,n:v.n})).sort((a,b)=>b.n-a.n).slice(0,4);
+    state.topics=topTopics;
+    renderTopics(topTopics);
+
+    // 2. topic route: established leaders on the dominant topics
+    setStatus(`<span class="spinner"></span> &nbsp;Identifying established leaders in the field…`);
+    const sel="id,display_name,orcid,cited_by_count,summary_stats,affiliations,last_known_institutions,topics";
+    let topicAuthors=[];
+    if(topTopics.length){
+      const tids=topTopics.slice(0,2).map(t=>t.id).join("|");
+      const ta=await getJSON(`${OA}/authors?filter=topics.id:${tids}&sort=cited_by_count:desc&per_page=50&select=${sel}&${MAILTO}`);
+      topicAuthors=ta.results||[];
+    }
+
+    // 3. assemble candidate details
+    const details={}; // id -> author object with details
+    topicAuthors.forEach(a=>{details[a.id]=a;});
+    // works-derived authors needing details: top 60 by area papers then relevance citations
+    const need=Object.values(agg).sort((a,b)=>b.areaPapers-a.areaPapers||b.relCit-a.relCit).slice(0,150)
+      .filter(d=>!details[d.id]).map(d=>d.id.split('/').pop());
+    setStatus(`<span class="spinner"></span> &nbsp;Loading author metrics…`);
+    for(let i=0;i<need.length;i+=50){
+      const chunk=need.slice(i,i+50).join("|");
+      const r=await getJSON(`${OA}/authors?filter=openalex_id:${chunk}&select=${sel}&per_page=50&${MAILTO}`);
+      (r.results||[]).forEach(a=>{details[a.id]=a;});
+    }
+
+    // 4. balanced score: normalise subject relevance and authority (h-index)
+    const domIds=new Set(topTopics.map(t=>t.id));
+    const inDomain=a=>(a.topics||[]).some(t=>domIds.has(t.id.split('/').pop()));
+    const cands=Object.values(details).map(a=>{
+      const ag=agg[a.id]||{areaPapers:0,relCit:0,recent:0};
+      return {...a, areaPapers:ag.areaPapers, relCit:ag.relCit, recent:ag.recent, hIndex:(a.summary_stats||{}).h_index||0};
+    })
+    // keep only people genuinely in the detected field (in-topic, or a focused contributor)
+    .filter(c=>inDomain(c)||c.areaPapers>=2);
+    const maxP=Math.max(1,...cands.map(c=>c.areaPapers));
+    const maxH=Math.max(1,...cands.map(c=>c.hIndex));
+    cands.forEach(c=>{
+      const rel=c.areaPapers/maxP, auth=c.hIndex/maxH;
+      c.score=Math.round((0.6*rel+0.4*auth)*100); // weight subject relevance over raw fame
+    });
+    const ranked=cands.filter(c=>c.areaPapers>0||c.hIndex>0).sort((a,b)=>b.score-a.score||b.hIndex-a.hIndex).slice(0,150);
+    state.candidates=ranked;
+    setStatus("");
+    buildFilters(ranked);
+    render();
+    enrichEmails(); // background: show public ORCID emails when available
+  }catch(e){
+    console.error(e);
+    setStatus("Something went wrong reaching OpenAlex. Please check your connection and try again.",true);
+  }
+  $("#searchBtn").disabled=false;
+}
+
+function renderTopics(tt){
+  if(!tt.length){$("#topics").innerHTML="";return;}
+  const box=el("div",{class:"card",style:"padding:16px 20px;margin-bottom:20px"});
+  box.append(el("div",{class:"sec-t",style:"margin-bottom:8px"},"Detected research topics"));
+  const row=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap"});
+  tt.forEach(t=>row.append(el("span",{class:"chip"}, `${t.name} · ${t.n}`)));
+  box.append(row);
+  $("#topics").innerHTML="";$("#topics").append(box);
+}
+
+function buildFilters(list){
+  const regions=[...new Set(["BR",...list.map(a=>bestAffil(a).country_code).filter(Boolean)])].sort();
+  const rsel=$("#regionSel");rsel.innerHTML='<option value="">All regions</option>';
+  regions.forEach(c=>rsel.append(el("option",{value:c},cc(c))));
+  $("#filters").style.display="block";$("#resHdr").style.display="flex";
+}
+
+function render(){
+  const region=$("#regionSel").value, minH=+$("#hSel").value;
+  const list=state.candidates.filter(a=>{
+    const inst=bestAffil(a);
+    if(region&&inst.country_code!==region)return false;
+    if(minH&&a.hIndex<minH)return false;
+    return true;
+  });
+  const shown=list.slice(0,48);
+  $("#resCount").textContent = list.length>shown.length ? `top ${shown.length} of ${list.length}` : `${list.length} found`;
+  const res=$("#results");res.innerHTML="";
+  shown.forEach((a,i)=>res.append(card(a,i+1)));
+  $("#empty").innerHTML=list.length?"":
+    `<div style="text-align:center;padding:60px 20px" class="muted">
+      <div style="font-size:40px;margin-bottom:12px">🔭</div>
+      <div style="font-size:16px;color:var(--text);margin-bottom:8px">No researchers for this filter</div>
+      <div class="small">Try a different region or h-index threshold.</div></div>`;
+}
+
+function ring(score){
+  const r=20,c=24,circ=2*Math.PI*r,dash=(score/100)*circ;
+  const col=score>=60?"#22d3ee":score>=35?"#14b8a6":"#8099b8";
+  const ns="http://www.w3.org/2000/svg";
+  const wrap=el("div",{style:"position:relative;width:48px;height:48px;flex-shrink:0"});
+  const svg=document.createElementNS(ns,"svg");svg.setAttribute("width","48");svg.setAttribute("height","48");svg.style.transform="rotate(-90deg)";
+  const bg=document.createElementNS(ns,"circle");[["cx",c],["cy",c],["r",r]].forEach(([k,v])=>bg.setAttribute(k,v));bg.setAttribute("fill","none");bg.setAttribute("stroke","#1e3357");bg.setAttribute("stroke-width","4");
+  const fg=document.createElementNS(ns,"circle");[["cx",c],["cy",c],["r",r]].forEach(([k,v])=>fg.setAttribute(k,v));fg.setAttribute("fill","none");fg.setAttribute("stroke",col);fg.setAttribute("stroke-width","4");fg.setAttribute("stroke-dasharray",`${dash} ${circ}`);fg.setAttribute("stroke-linecap","round");
+  svg.append(bg,fg);wrap.append(svg);
+  wrap.append(el("div",{class:"mono",style:`position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${col}`},String(score)));
+  return wrap;
+}
+
+function card(a,rank){
+  const inst=bestAffil(a);
+  const c=el("div",{class:"rcard"});
+  c.append(el("div",{style:"display:flex;gap:12px;align-items:flex-start"},
+    el("div",{style:"width:42px;height:42px;border-radius:10px;background:#1a3a6b;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#22d3ee;flex-shrink:0"}, initials(a.display_name)),
+    el("div",{style:"flex:1"},
+      el("div",{style:"font-size:15px;font-weight:600;margin-bottom:2px"}, `${rank}. ${a.display_name}`),
+      el("div",{class:"small muted"}, `${inst.display_name||"—"}${inst.country_code?" · "+cc(inst.country_code):""}`)),
+    ring(a.score)
+  ));
+  // topic chips
+  const chips=el("div",{style:"display:flex;gap:6px;flex-wrap:wrap"});
+  (a.topics||[]).slice(0,3).forEach(t=>chips.append(el("span",{class:"chip"}, t.display_name)));
+  if((a.topics||[]).length) c.append(chips);
+  // stats
+  const srow=el("div",{style:"display:flex;gap:18px;flex-wrap:wrap"});
+  [["h-index",(a.summary_stats||{}).h_index??"—"],["Citations",num(a.cited_by_count)],["Papers on topic",a.areaPapers||0]].forEach(([l,v])=>{
+    srow.append(el("div",{}, el("div",{class:"stat mono"}, String(v), el("small",{}, l))));
+  });
+  c.append(srow);
+  // why
+  const why=el("div",{class:"divider"}, el("div",{class:"sec-t"},"Why it ranks here"));
+  reasons(a).forEach(r=>why.append(el("div",{class:"reason"}, r)));
+  c.append(why);
+  // contact: public email from ORCID, when available
+  if(a._email){
+    c.append(el("div",{class:"divider"},
+      el("div",{class:"sec-t"},"Contact"),
+      el("a",{href:"mailto:"+a._email,class:"small",style:"color:#14b8a6;word-break:break-all"}, "✉ "+a._email)));
+  }
+  // actions
+  const gs="https://scholar.google.com/scholar?q="+encodeURIComponent('"'+a.display_name+'"');
+  const acts=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap"});
+  acts.append(el("a",{class:"btn-ghost",style:"flex:1",href:gs,target:"_blank",rel:"noopener noreferrer"}, "Google Scholar ↗"));
+  acts.append(el("a",{class:"btn-ghost",style:"flex:1",href:a.orcid||a.id,target:"_blank",rel:"noopener noreferrer"}, a.orcid?"ORCID ↗":"OpenAlex ↗"));
+  c.append(acts);
+  return c;
+}
+
+function reasons(a){
+  const out=[];
+  if(a.areaPapers>0) out.push(`${a.areaPapers} highly cited paper${a.areaPapers>1?"s":""} matching your keywords`);
+  const h=(a.summary_stats||{}).h_index||0;
+  if(h>=40) out.push(`Major scholarly impact (h-index ${h})`);
+  else if(h>0) out.push(`Established impact (h-index ${h})`);
+  if(a.recent>0) out.push(`Active recently: ${a.recent} paper${a.recent>1?"s":""} in the last 5 years`);
+  if(!out.length) out.push(`Leading author in the detected research topics`);
+  return out.slice(0,4);
+}
+
+// wire up
+$("#searchForm").addEventListener("submit",e=>{e.preventDefault();run($("#kwInput").value);});
+["#regionSel","#hSel"].forEach(s=>$(s).addEventListener("change",render));
+const exBox=$("#examples");
+EXAMPLES.forEach(k=>exBox.append(el("span",{class:"chip-teal ex",onclick:()=>{$("#kwInput").value=k;run(k);}}, k)));
+</script>
+</body>
+</html>
