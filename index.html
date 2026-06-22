@@ -310,6 +310,11 @@ function card(a,rank){
       el("div",{class:"sec-t"},"Contact"),
       el("a",{href:"mailto:"+a._email,class:"small",style:"color:#14b8a6;word-break:break-all"}, "✉ "+a._email)));
   }
+  // ORCID number, visible and selectable for copying
+  if(a.orcid){
+    const oid=a.orcid.replace(/^https?:\/\/orcid\.org\//,"");
+    c.append(el("div",{class:"small mono",style:"color:#8099b8;user-select:all;cursor:text"}, oid));
+  }
   // actions
   const gs="https://scholar.google.com/scholar?q="+encodeURIComponent('"'+a.display_name+'"');
   const acts=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap"});
