@@ -242,7 +242,7 @@ function renderTopics(tt){
 }
 
 function buildFilters(list){
-  const regions=[...new Set(["BR",...list.map(a=>bestAffil(a).country_code).filter(Boolean)])].sort();
+  const regions=[...new Set(["BR","NL",...list.map(a=>bestAffil(a).country_code).filter(c=>c&&cc(c)!==c)])].sort();
   const rsel=$("#regionSel");rsel.innerHTML='<option value="">All regions</option>';
   regions.forEach(c=>rsel.append(el("option",{value:c},cc(c))));
   $("#filters").style.display="block";$("#resHdr").style.display="flex";
